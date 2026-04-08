@@ -10,7 +10,7 @@ void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs);
 double dwalltime();
 
 int main(int argc, char *argv[]) {
-    double *A, *B, *T1, *R;
+    double *A, *B,*BT, *T1, *R;
     int N, BS;
     double timetick;
     
@@ -20,23 +20,24 @@ int main(int argc, char *argv[]) {
     double escalar;
 
     if ((argc != 3) || ((N = atoi(argv[1])) <= 0) || ((BS = atoi(argv[2])) <= 0) || ((N % BS) != 0)) {
-        printf("Uso: %s N BS (N múltiplo de BS)\n", argv[0]);
+        printf("\nError en los parámetros. Usage: ./%s N BS (N debe ser multiplo de BS)\n", argv[0]);
         exit(1);
     }
 
-    size_t size = (size_t)N * N;
 
-    A = (double *)malloc(size * sizeof(double));
-    B = (double *)malloc(size * sizeof(double));
-    T1 = (double *)malloc(size * sizeof(double)); // Resultado intermedio (A x B)
-    R = (double *)malloc(size * sizeof(double));  // Resultado final
+    A = (double *)malloc(N * N * sizeof(double));
+    B = (double *)malloc(N * N * sizeof(double));
+    BT = (double *)malloc(N * N * sizeof(double));
+    T1 = (double *)malloc(N * N * sizeof(double)); // Resultado intermedio (A x B)
+    R = (double *)malloc(N * N * sizeof(double));  // Resultado final
 
     // 1. Inicialización y cálculo de métricas (Optimizado en un solo paso)
     // Usamos transpose=1 para B porque la fórmula requiere B y B^T
     // Esto em ayuda a organizar las matrices en memoria fisica
     // Quedaria como un arreglo de una dimension
-    initvalmat(A, N, 1.0, 0); 
-    initvalmat(B, N, 1.0, 1); // B almacenada por columnas es B^T y la multiplicación
+    initvalmat(A, N, 1.0, 0);
+    initvalmat(B, N, 1.0, 0); 
+    initvalmat(BT, N, 1.0, 1); // B^T
 
     timetick = dwalltime();
     //Para garantizar un acceso secuencial a memoria y maximizar el aprovechamiento de las líneas de caché, evitando saltos innecesarios (cahce miss)."*/
@@ -52,8 +53,8 @@ int main(int argc, char *argv[]) {
         if (B[i] < minB) minB = B[i];
         promB += B[i];
     }
-    promA =promA / (double)size;
-    promB = promA / (double)size;
+    promA =promA / (double)(N*N);
+    promB = promB / (double)(N*N);
  
     // 2. Cálculo del Escalar
     escalar = (maxA * maxB - minA * minB) / (promA * promB);
@@ -65,18 +66,18 @@ int main(int argc, char *argv[]) {
     matmulblks(A, B, T1, N, BS);
 
     // R = T1 x B^t
-    // Como B ya está en orden de columnas (transpose=1), pasarla a matmulblks
-    // de nuevo actúa efectivamente como usar su transpuesta si la función 
-    // espera orden de filas.
-    matmulblks(T1, B, R, N, BS);
+    // B esta guardada por columnas en mem fisica que es lo mismo que 
+    // tenerla transpuesta 
+    matmulblks(T1, BT, R, N, BS);
 
-    // escalar * [A * B * B^t]
+    // escalar * R
     for (int i = 0; i < N * N; i++) {
         R[i] *= escalar;
     }
 
-    double totalTime = dwalltime() - timetick;
-    printf("N=%d, BS=%d, Tiempo total: %f s\n", N, BS, totalTime);
+    double workTime = dwalltime() - timetick;
+
+  printf("MMBLK-SEC;%d;%d;%lf;%lf\n",N,BS,workTime,((double)2*N*N*N)/(workTime*1000000000));
 
     free(A); 
     free(B); 
@@ -103,7 +104,7 @@ void initvalmat(double *mat, int n, double val, int transpose) {
 void matmulblks(double *a, double *b, double *c, int n, int bs) {
     int i, j, k;
     // preparo la matriz acumuladora
-    for (int idx = 0; idx < n*n; idx++) c[idx] = 0.0;
+    initvalmat(c,n,0.0,0);
 
     for (i = 0; i < n; i += bs) {
         for (j = 0; j < n; j += bs) {
@@ -125,8 +126,12 @@ void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs) {
     }
 }
 
-double dwalltime() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec + tv.tv_usec / 1000000.0;
+double dwalltime()
+{
+	double sec;
+	struct timeval tv;
+
+	gettimeofday(&tv,NULL);
+	sec = tv.tv_sec + tv.tv_usec/1000000.0;
+	return sec;
 }
