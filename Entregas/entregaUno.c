@@ -15,8 +15,8 @@ int main(int argc, char *argv[]) {
     double timetick;
     
     // Variables para métricas
-    double maxA = -1.0, minA = 1e15, promA = 0.0;
-    double maxB = -1.0, minB = 1e15, promB = 0.0;
+    double maxA = -1.0, minA = 99999.0, promA = 0.0;
+    double maxB = -1.0, minB = 99999.0, promB = 0.0;
     double escalar;
 
     if ((argc != 3) || ((N = atoi(argv[1])) <= 0) || ((BS = atoi(argv[2])) <= 0) || ((N % BS) != 0)) {
@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
     }
 
     size_t size = (size_t)N * N;
+
     A = (double *)malloc(size * sizeof(double));
     B = (double *)malloc(size * sizeof(double));
     T1 = (double *)malloc(size * sizeof(double)); // Resultado intermedio (A x B)
@@ -32,12 +33,15 @@ int main(int argc, char *argv[]) {
 
     // 1. Inicialización y cálculo de métricas (Optimizado en un solo paso)
     // Usamos transpose=1 para B porque la fórmula requiere B y B^T
+    // Esto em ayuda a organizar las matrices en memoria fisica
+    // Quedaria como un arreglo de una dimension
     initvalmat(A, N, 1.0, 0); 
-    initvalmat(B, N, 1.0, 1); // B almacenada por columnas facilita B^T y la multiplicación
+    initvalmat(B, N, 1.0, 1); // B almacenada por columnas es B^T y la multiplicación
 
     timetick = dwalltime();
-	/*Si te preguntan por qué usaste un solo bucle, la respuesta clave es: 
-    "Para garantizar un acceso secuencial a memoria y maximizar el aprovechamiento de las líneas de caché, evitando saltos innecesarios (strides)."*/
+    //Para garantizar un acceso secuencial a memoria y maximizar el aprovechamiento de las líneas de caché, evitando saltos innecesarios (cahce miss)."*/
+    //Puedo usar un solo for por la forma en que guarde las matrices 
+    // con N*N cubro todo el recorrido
     for (int i = 0; i < N * N; i++) {
         // Métricas A
         if (A[i] > maxA) maxA = A[i];
@@ -48,23 +52,25 @@ int main(int argc, char *argv[]) {
         if (B[i] < minB) minB = B[i];
         promB += B[i];
     }
-    promA /= (double)size;
-    promB /= (double)size;
-
+    promA =promA / (double)size;
+    promB = promA / (double)size;
+ 
     // 2. Cálculo del Escalar
     escalar = (maxA * maxB - minA * minB) / (promA * promB);
 
-    // 3. Operaciones de matrices por bloques
     // T1 = A x B
+    // Trabajo la ultiplicacion e las matrices A y B 
+    // con bloques e tamaño BS aprovechando mejor el uso de 
+    // Localidad espacial y remporal
     matmulblks(A, B, T1, N, BS);
 
-    // R = T1 x B_transpuesta
+    // R = T1 x B^t
     // Como B ya está en orden de columnas (transpose=1), pasarla a matmulblks
     // de nuevo actúa efectivamente como usar su transpuesta si la función 
     // espera orden de filas.
     matmulblks(T1, B, R, N, BS);
 
-    // 4. Multiplicación por el escalar
+    // escalar * [A * B * B^t]
     for (int i = 0; i < N * N; i++) {
         R[i] *= escalar;
     }
@@ -72,28 +78,31 @@ int main(int argc, char *argv[]) {
     double totalTime = dwalltime() - timetick;
     printf("N=%d, BS=%d, Tiempo total: %f s\n", N, BS, totalTime);
 
-    free(A); free(B); free(T1); free(R);
+    free(A); 
+    free(B); 
+    free(T1); 
+    free(R);
     return 0;
 }
 
-// --- Funciones proporcionadas por la cátedra ---
+// cosas de la catedra
 
 void initvalmat(double *mat, int n, double val, int transpose) {
     int i, j;
     if (transpose == 0) {
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++)
-                mat[i * n + j] = val;
+                mat[i * n + j] = val;// aca es como si leyera la memoria de corrido, no se prodcen saltos ni miss cache
     } else {
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++)
-                mat[j * n + i] = val;
+                mat[j * n + i] = val;// esto invierto los inices para hacer la transpuesta de B
     }
 }
 
 void matmulblks(double *a, double *b, double *c, int n, int bs) {
     int i, j, k;
-    // Es vital limpiar la matriz destino antes de sumar bloques
+    // preparo la matriz acumuladora
     for (int idx = 0; idx < n*n; idx++) c[idx] = 0.0;
 
     for (i = 0; i < n; i += bs) {
