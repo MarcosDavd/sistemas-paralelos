@@ -66,8 +66,6 @@ int main(int argc, char *argv[]) {
     matmulblks(A, B, T1, N, BS);
 
     // R = T1 x B^t
-    // B esta guardada por columnas en mem fisica que es lo mismo que 
-    // tenerla transpuesta 
     matmulblks(T1, BT, R, N, BS);
 
     // escalar * R
@@ -81,7 +79,8 @@ int main(int argc, char *argv[]) {
 
     free(A); 
     free(B); 
-    free(T1); 
+    free(T1);
+    free(BT) 
     free(R);
     return 0;
 }
