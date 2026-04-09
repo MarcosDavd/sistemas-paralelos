@@ -63,10 +63,10 @@ int main(int argc, char *argv[]) {
     // Trabajo la ultiplicacion e las matrices A y B 
     // con bloques e tamaño BS aprovechando mejor el uso de 
     // Localidad espacial y remporal
-    matmulblks(A, B, T1, N, BS);
+    matmulblks(B, BT, T1, N, BS);
 
     // R = T1 x B^t
-    matmulblks(T1, BT, R, N, BS);
+    matmulblks(A, T1, R, N, BS);
 
     // escalar * R
     for (int i = 0; i < N * N; i++) {
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     free(A); 
     free(B); 
     free(T1);
-    free(BT) 
+    free(BT);
     free(R);
     return 0;
 }
