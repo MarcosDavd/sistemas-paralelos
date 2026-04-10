@@ -3,7 +3,7 @@
 #include <limits.h>
 #include <sys/time.h>
 
-// Prototipos de funciones
+//funciones
 void initvalmat(double *mat, int n, double val, int transpose);
 void matmulblks(double *a, double *b, double *c, int n, int bs);
 void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs);
@@ -14,7 +14,6 @@ int main(int argc, char *argv[]) {
     int N, BS;
     double timetick;
     
-    // Variables para métricas
     double maxA = -1.0, minA = 99999.0, promA = 0.0;
     double maxB = -1.0, minB = 99999.0, promB = 0.0;
     double escalar;
@@ -28,11 +27,10 @@ int main(int argc, char *argv[]) {
     A = (double *)malloc(N * N * sizeof(double));
     B = (double *)malloc(N * N * sizeof(double));
     BT = (double *)malloc(N * N * sizeof(double));
-    T1 = (double *)malloc(N * N * sizeof(double)); // Resultado intermedio (A x B)
+    T1 = (double *)malloc(N * N * sizeof(double)); // Resultado intermedio (B x BT)
     R = (double *)malloc(N * N * sizeof(double));  // Resultado final
 
-    // 1. Inicialización y cálculo de métricas (Optimizado en un solo paso)
-    // Usamos transpose=1 para B porque la fórmula requiere B y B^T
+   // Usamos transpose=1 para B porque la fórmula requiere B y B^T
     // Esto em ayuda a organizar las matrices en memoria fisica
     // Quedaria como un arreglo de una dimension
     initvalmat(A, N, 1.0, 0);
@@ -40,15 +38,13 @@ int main(int argc, char *argv[]) {
     initvalmat(BT, N, 1.0, 1); // B^T
 
     timetick = dwalltime();
-    //Para garantizar un acceso secuencial a memoria y maximizar el aprovechamiento de las líneas de caché, evitando saltos innecesarios (cahce miss)."*/
     //Puedo usar un solo for por la forma en que guarde las matrices 
     // con N*N cubro todo el recorrido
     for (int i = 0; i < N * N; i++) {
-        // Métricas A
         if (A[i] > maxA) maxA = A[i];
         if (A[i] < minA) minA = A[i];
         promA += A[i];
-        // Métricas B
+        
         if (B[i] > maxB) maxB = B[i];
         if (B[i] < minB) minB = B[i];
         promB += B[i];
@@ -56,16 +52,17 @@ int main(int argc, char *argv[]) {
     promA =promA / (double)(N*N);
     promB = promB / (double)(N*N);
  
-    // 2. Cálculo del Escalar
+    // Escalar
     escalar = (maxA * maxB - minA * minB) / (promA * promB);
 
-    // T1 = A x B
-    // Trabajo la ultiplicacion e las matrices A y B 
-    // con bloques e tamaño BS aprovechando mejor el uso de 
-    // Localidad espacial y remporal
+    // T1 = B x BT
+    // Trabajo mejor la multiplicacion de las matrices B y BT
+    // al tener B por filas y BT por columas 
+    // con bloques de tamaño BS aprovechando mejor el uso de 
+    // Localidad espacial
     matmulblks(B, BT, T1, N, BS);
 
-    // R = T1 x B^t
+    // R = T1 x A
     matmulblks(A, T1, R, N, BS);
 
     // escalar * R
@@ -85,18 +82,16 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-// cosas de la catedra
-
 void initvalmat(double *mat, int n, double val, int transpose) {
     int i, j;
     if (transpose == 0) {
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++)
-                mat[i * n + j] = val;// aca es como si leyera la memoria de corrido, no se prodcen saltos ni miss cache
+                mat[i * n + j] = val;
     } else {
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++)
-                mat[j * n + i] = val;// esto invierto los inices para hacer la transpuesta de B
+                mat[j * n + i] = val;// con esto invierto los inices para hacer la transpuesta de B
     }
 }
 
