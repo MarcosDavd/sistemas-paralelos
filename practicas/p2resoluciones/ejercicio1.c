@@ -37,13 +37,13 @@ void print_m(){
 }
 int main(int argc, char *argv[]){
     if((argc != 3) || ((N = atoi(argv[1])) <= 0) || ((T = atoi(argv[2])) <= 0)){
-        printf("\nUsar: %s n t \n n: Dimension de la matriz(nxn X nxn) \n t: Cantidad de hilos \n", argv[0]);
+        printf("\nUsar: %s n t \n n: Dimension del vector \n t: Cantidad de hilos \n", argv[0]);
         exit(1);
     }
     int i;
     double timetick;
     int ids[T];
-    block_size = N / T;
+    block_size = N / T; // cuantas secciones le toca a cada hilo
     pthread_attr_t attr;
     pthread_t threads[T];
     
@@ -62,11 +62,11 @@ int main(int argc, char *argv[]){
         ids[i]=i;
         pthread_create(&threads[i], &attr, nombre_funcion, &ids[i]);
     }
-    timetick = dwalltime();
+    timetick = dwalltime();// inicia
     for(int i=0; i<T; i++){
         pthread_join(threads[i], NULL);
     }
-    double time = dwalltime() - timetick;
+    double time = dwalltime() - timetick;// termina medicion de tiempo
     
     print_m();
     printf("Suma de vectores de dimension %d. Tiempo en segundos %f\n",N,time);
