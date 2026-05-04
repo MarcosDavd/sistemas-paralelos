@@ -10,7 +10,9 @@ void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs);
 double dwalltime();
 
 double *A, *B,*BT, *T1, *R;
-int N, BS,T;
+int N;
+int BS =64;
+int T=8;
 double maxA = -1.0, minA = 99999.0, promA = 0.0;
 double maxB = -1.0, minB = 99999.0, promB = 0.0;
 double escalar;
@@ -19,6 +21,7 @@ int blockSize;
 pthread_mutex_t mut;
 void * mi_funcion(void * arg){
     int id = *((int *)arg);
+    printf("llegue a la funcio %d\n",id);
     int inicio = id * blockSize;
     int fin = inicio + blockSize;
     int i, j, offsetI, offsetJ;
@@ -86,7 +89,7 @@ void * mi_funcion(void * arg){
     pthread_barrier_wait(&barrera);
     // escalar * R
     for(int i = inicio; i< fin; i++){
-        for (int j = 0; j < N * N; j++) {
+        for (int j = 0; j < N; j++) {
             R[i*N+j] *= escalar;
         }
     }
@@ -101,10 +104,12 @@ int main(int argc, char *argv[]) {
     pthread_t hilos[T];
 
     pthread_attr_init(&attr);
+    
+    pthread_barrier_init(&barrera, NULL, T);
     pthread_mutex_init(&mut,NULL); 
     
-    if ((argc != 3) || ((N = atoi(argv[1])) <= 0) || ((BS = atoi(argv[2])) <= 0) || ((N % BS) != 0)) {
-        printf("\nError en los parámetros. Usage: ./%s N BS (N debe ser multiplo de BS)\n", argv[0]);
+    if ((argc != 2) || ((N = atoi(argv[1])) <= 0)) {
+        printf("\nError en los parámetros. Usage: ./%s N\n", argv[0]);
         exit(1);
     }
      blockSize= N/T;
@@ -135,7 +140,6 @@ int main(int argc, char *argv[]) {
         promB += B[i];
     }
     */
-    pthread_barrier_init(&barrera, NULL, T);
 
     for(int i=0; i<T; i++){
         ids[i]=i;
@@ -149,13 +153,12 @@ int main(int argc, char *argv[]) {
     double workTime = dwalltime() - timetick;
 
   printf("MMBLK-SEC;%d;%d;%lf;%lf\n",N,BS,workTime,((double)2*N*N*N)/(workTime*1000000000));
-    
     pthread_mutex_destroy(&mut);
     pthread_barrier_destroy(&barrera);
     free(A); 
     free(B); 
-    free(T1);
     free(BT);
+    free(T1);
     free(R);
     return 0;
 }
