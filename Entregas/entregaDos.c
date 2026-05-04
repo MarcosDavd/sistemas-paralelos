@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
         pthread_create(&hilos[i], &attr,mi_funcion, &ids[i]);
     }
     for(int i=0; i<T;i++){
-        pthread_join(&hilos[i],NULL);
+        pthread_join(hilos[i],NULL);
     }
     
 
