@@ -9,13 +9,13 @@
 void initvalmat(double *mat, int n, double val, int transpose);
 void matmulblks(double *a, double *b, double *c, int n, int bs, int inicio, int fin);
 void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs);
-void transponer(double *b, double *bt, int n)
+void transponer(double *b, double *bt, int n);
 double dwalltime();
 
 double *A, *B,*BT, *T1, *R;
 int N;
-int BS =64;
-int T=8;
+int BS;
+int T;
 double maxA = -DBL_MAX, minA = DBL_MAX, promA = 0.0;
 double maxB = -DBL_MAX, minB = DBL_MAX, promB = 0.0;
 double escalar;
@@ -86,9 +86,8 @@ void * mi_funcion(void * arg){
     }
     pthread_barrier_wait(&barrera);
     matmulblks(A, B, T1, N, BS, inicio,fin);
-    pthread_barrier_wait(&barrera);// esto estaria bien ?
-    matmulblks(T1, BT, R, N, BS, inicio,fin);
     pthread_barrier_wait(&barrera);
+    matmulblks(T1, BT, R, N, BS, inicio,fin);
     // escalar * R
     for(int i = inicio; i< fin; i++){
         for (int j = 0; j < N; j++) {
@@ -99,21 +98,27 @@ void * mi_funcion(void * arg){
 }
 
 int main(int argc, char *argv[]) {
-    double timetick;
-    int ids[T];
-    pthread_attr_t attr;
-    pthread_t hilos[T];
-
-    pthread_attr_init(&attr);
-    
-    pthread_barrier_init(&barrera, NULL, T);
-    pthread_mutex_init(&mut,NULL); 
-    
-    if ((argc != 2) || ((N = atoi(argv[1])) <= 0)) {
-        printf("\nError en los parámetros. Usage: ./%s N\n", argv[0]);
+    if (argc != 4) {
+        printf("\nUso: ./%s N BS T\n", argv[0]);
         exit(1);
     }
-     blockSize= N/T;
+
+    N  = atoi(argv[1]);
+    BS = atoi(argv[2]);
+    T  = atoi(argv[3]);
+    if (N <= 0 || BS <= 0 || T <= 0) {
+        printf("\nError: N, BS y T deben ser mayores a 0\n");
+        exit(1);
+    }
+    
+    double timetick;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_barrier_init(&barrera, NULL, T);
+    pthread_mutex_init(&mut,NULL); 
+    blockSize= N/T;
+    pthread_t hilos[T];
+    int ids[T];
 
 
     A = (double *)malloc(N * N * sizeof(double));
@@ -122,12 +127,12 @@ int main(int argc, char *argv[]) {
     T1 = (double *)malloc(N * N * sizeof(double)); 
     R = (double *)malloc(N * N * sizeof(double));  // Resultado final
 
+    timetick = dwalltime();
     initvalmat(A, N, 1.0, 0);
     initvalmat(B, N, 1.0, 1); 
-    initvalmat(T1,N,0.0,0);// B^T
+    initvalmat(T1,N,0.0,0);
     initvalmat(R,N,0.0,0);
     transponer(B, BT, N);
-    timetick = dwalltime();
     for(int i=0; i<T; i++){
         ids[i]=i;
         pthread_create(&hilos[i], &attr,mi_funcion, &ids[i]);
@@ -139,7 +144,17 @@ int main(int argc, char *argv[]) {
 
     double workTime = dwalltime() - timetick;
 
-  printf("MMBLK-PTHREADS;%d;%d;%lf;%lf\n",N,BS,workTime,((double)2*N*N*N)/(workTime*1000000000));
+printf("MMBLK-PTHREADS;"
+       "N=%d;"
+       "T=%d;"
+       "BS=%d;"
+       "TIME=%lf;"
+       "GFLOPS=%lf\n",
+       N,
+       T,
+       BS,
+       workTime,
+       ((double)4*N*N*N)/(workTime*1e9));
     pthread_mutex_destroy(&mut);
     pthread_barrier_destroy(&barrera);
     free(A); 
@@ -150,10 +165,11 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 void transponer(double *b, double *bt, int n) {
-    int i, j;
+    int aux,i, j;
     for (i = 0; i < n; i++) {
+        aux=i*n;
         for (j = 0; j < n; j++) {
-            bt[j * n + i] = b[i * n + j];
+            bt[j * n + i] = b[aux + j];
         }
     }
 }
