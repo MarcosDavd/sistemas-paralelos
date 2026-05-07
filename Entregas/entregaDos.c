@@ -3,6 +3,8 @@
 #include <limits.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <float.h>
+
 //funciones
 void initvalmat(double *mat, int n, double val, int transpose);
 void matmulblks(double *a, double *b, double *c, int n, int bs, int inicio, int fin);
@@ -13,23 +15,22 @@ double *A, *B,*BT, *T1, *R;
 int N;
 int BS =64;
 int T=8;
-double maxA = -1.0, minA = 99999.0, promA = 0.0;
-double maxB = -1.0, minB = 99999.0, promB = 0.0;
+double maxA = -DBL_MAX, minA = DBL_MAX, promA = 0.0;
+double maxB = -DBL_MAX, minB = DBL_MAX, promB = 0.0;
 double escalar;
 pthread_barrier_t barrera;
 int blockSize;
 pthread_mutex_t mut;
 void * mi_funcion(void * arg){
     int id = *((int *)arg);
-    printf("llegue a la funcio %d\n",id);
     int inicio = id * blockSize;
     int fin = inicio + blockSize;
     int i, j, offsetI, offsetJ;
     double valorA,valorB;
     // maximos del hilo
-    double tmaxA=-1,tmaxB=-1;
+    double tmaxA=-DBL_MAX,tmaxB=-DBL_MAX;
     // minimos del hilo
-    double tminA = 9999,tminB=9999;
+    double tminA = DBL_MAX,tminB=DBL_MAX;
     // total acumulado del hilo para el promedio total de cada matriz
     double totalA=0, totalB=0;
     
@@ -82,7 +83,7 @@ void * mi_funcion(void * arg){
         promB = promB / (double)(N*N);
         escalar = (maxA * maxB - minA * minB) / (promA * promB);
     }
-    
+    pthread_barrier_wait(&barrera);
     matmulblks(A, B, T1, N, BS, inicio,fin);
     pthread_barrier_wait(&barrera);// esto estaria bien ?
     matmulblks(T1, BT, R, N, BS, inicio,fin);
@@ -93,7 +94,6 @@ void * mi_funcion(void * arg){
             R[i*N+j] *= escalar;
         }
     }
-    pthread_barrier_wait(&barrera);
     pthread_exit(0);
 }
 
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
     A = (double *)malloc(N * N * sizeof(double));
     B = (double *)malloc(N * N * sizeof(double));
     BT = (double *)malloc(N * N * sizeof(double));
-    T1 = (double *)malloc(N * N * sizeof(double)); // Resultado intermedio (B x BT)
+    T1 = (double *)malloc(N * N * sizeof(double)); 
     R = (double *)malloc(N * N * sizeof(double));  // Resultado final
 
     initvalmat(A, N, 1.0, 0);
@@ -127,20 +127,6 @@ int main(int argc, char *argv[]) {
     initvalmat(BT, N, 1.0, 1); // B^T
     initvalmat(R,N,0.0,0);
     timetick = dwalltime();
-    //Puedo usar un solo for por la forma en que guarde las matrices 
-    // con N*N cubro todo el recorrido
-    /*
-    for (int i = 0; i < N * N; i++) {
-        if (A[i] > maxA) maxA = A[i];
-        if (A[i] < minA) minA = A[i];
-        promA += A[i];
-        
-        if (B[i] > maxB) maxB = B[i];
-        if (B[i] < minB) minB = B[i];
-        promB += B[i];
-    }
-    */
-
     for(int i=0; i<T; i++){
         ids[i]=i;
         pthread_create(&hilos[i], &attr,mi_funcion, &ids[i]);
@@ -152,7 +138,7 @@ int main(int argc, char *argv[]) {
 
     double workTime = dwalltime() - timetick;
 
-  printf("MMBLK-SEC;%d;%d;%lf;%lf\n",N,BS,workTime,((double)2*N*N*N)/(workTime*1000000000));
+  printf("MMBLK-PTHREADS;%d;%d;%lf;%lf\n",N,BS,workTime,((double)2*N*N*N)/(workTime*1000000000));
     pthread_mutex_destroy(&mut);
     pthread_barrier_destroy(&barrera);
     free(A); 
@@ -178,7 +164,6 @@ void initvalmat(double *mat, int n, double val, int transpose) {
 
 void matmulblks(double *a, double *b, double *c, int n, int bs, int inicio, int fin) {
     int i, j, k;
-    // preparo la matriz acumuladora
 
     for (i = inicio; i < fin; i += bs) {
         for (j = 0; j < n; j += bs) {
