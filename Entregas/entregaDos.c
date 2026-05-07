@@ -9,6 +9,7 @@
 void initvalmat(double *mat, int n, double val, int transpose);
 void matmulblks(double *a, double *b, double *c, int n, int bs, int inicio, int fin);
 void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs);
+void transponer(double *b, double *bt, int n)
 double dwalltime();
 
 double *A, *B,*BT, *T1, *R;
@@ -122,10 +123,10 @@ int main(int argc, char *argv[]) {
     R = (double *)malloc(N * N * sizeof(double));  // Resultado final
 
     initvalmat(A, N, 1.0, 0);
-    initvalmat(B, N, 1.0, 0); 
-    initvalmat(T1,N,0.0,0);
-    initvalmat(BT, N, 1.0, 1); // B^T
+    initvalmat(B, N, 1.0, 1); 
+    initvalmat(T1,N,0.0,0);// B^T
     initvalmat(R,N,0.0,0);
+    transponer(B, BT, N);
     timetick = dwalltime();
     for(int i=0; i<T; i++){
         ids[i]=i;
@@ -148,7 +149,14 @@ int main(int argc, char *argv[]) {
     free(R);
     return 0;
 }
-
+void transponer(double *b, double *bt, int n) {
+    int i, j;
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < n; j++) {
+            bt[j * n + i] = b[i * n + j];
+        }
+    }
+}
 void initvalmat(double *mat, int n, double val, int transpose) {
     int i, j;
     if (transpose == 0) {
