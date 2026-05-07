@@ -33,11 +33,10 @@ int main(int argc, char *argv[]) {
    // Usamos transpose=1 para B porque la fórmula requiere B y B^T
     // Esto em ayuda a organizar las matrices en memoria fisica
     // Quedaria como un arreglo de una dimension
+    timetick = dwalltime();
     initvalmat(A, N, 1.0, 0);
     initvalmat(B, N, 1.0, 0); 
     initvalmat(BT, N, 1.0, 1); // B^T
-
-    timetick = dwalltime();
     //Puedo usar un solo for por la forma en que guarde las matrices 
     // con N*N cubro todo el recorrido
     for (int i = 0; i < N * N; i++) {
@@ -60,10 +59,10 @@ int main(int argc, char *argv[]) {
     // al tener B por filas y BT por columas 
     // con bloques de tamaño BS aprovechando mejor el uso de 
     // Localidad espacial
-    matmulblks(B, BT, T1, N, BS);
+    matmulblks(A, B, T1, N, BS);
 
     // R = T1 x A
-    matmulblks(A, T1, R, N, BS);
+    matmulblks(T1, BT, R, N, BS);
 
     // escalar * R
     for (int i = 0; i < N * N; i++) {
@@ -83,11 +82,13 @@ int main(int argc, char *argv[]) {
 }
 
 void initvalmat(double *mat, int n, double val, int transpose) {
-    int i, j;
+    int i, j,aux;
     if (transpose == 0) {
-        for (i = 0; i < n; i++)
+        for (i = 0; i < n; i++){
+            aux = i*n;
             for (j = 0; j < n; j++)
-                mat[i * n + j] = val;
+                mat[aux + j] = val;
+        }
     } else {
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++)
@@ -96,25 +97,31 @@ void initvalmat(double *mat, int n, double val, int transpose) {
 }
 
 void matmulblks(double *a, double *b, double *c, int n, int bs) {
-    int i, j, k;
+    int i, j, k, aux,aux2,aux3;
     // preparo la matriz acumuladora
     initvalmat(c,n,0.0,0);
 
     for (i = 0; i < n; i += bs) {
         for (j = 0; j < n; j += bs) {
+             aux3 =i*n;
+             aux = aux3+j;
+             aux2 =j*n;
             for (k = 0; k < n; k += bs) {
-                blkmul(&a[i * n + k], &b[j * n + k], &c[i * n + j], n, bs);
+                blkmul(&a[aux3+ k], &b[aux2 + k], &c[aux], n, bs);
             }
         }
     }
 }
 
 void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs) {
-    int i, j, k;
+    int i, j, k, aux,aux2,aux3;
     for (i = 0; i < bs; i++) {
         for (j = 0; j < bs; j++) {
+            aux2 =j*n;
+            aux3 =i*n;
+            aux = aux3+j;
             for (k = 0; k < bs; k++) {
-                cblk[i * n + j] += ablk[i * n + k] * bblk[j * n + k];
+                cblk[aux] += ablk[aux3+ k] * bblk[aux2 + k];
             }
         }
     }
