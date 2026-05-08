@@ -34,9 +34,10 @@ int main(int argc, char *argv[]) {
    // Usamos transpose=1 para B porque la fórmula requiere B y B^T
     // Esto em ayuda a organizar las matrices en memoria fisica
     // Quedaria como un arreglo de una dimension
-    timetick = dwalltime();
+    
     initvalmat(A, N, 1.0, 0);
     initvalmat(B, N, 1.0, 1); 
+    timetick = dwalltime();
     transponer(B, BT, N);
     //Puedo usar un solo for por la forma en que guarde las matrices 
     // con N*N cubro todo el recorrido
@@ -72,7 +73,7 @@ int main(int argc, char *argv[]) {
 
     double workTime = dwalltime() - timetick;
 
-  printf("MMBLK-SEC;%d;%d;%lf;%lf\n",N,BS,workTime,((double)2*N*N*N)/(workTime*1000000000));
+  printf("MMBLK-SEC;%d;%d;%lf;\n",N,BS,workTime);
 
     free(A); 
     free(B); 
