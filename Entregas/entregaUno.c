@@ -7,6 +7,7 @@
 void initvalmat(double *mat, int n, double val, int transpose);
 void matmulblks(double *a, double *b, double *c, int n, int bs);
 void blkmul(double *ablk, double *bblk, double *cblk, int n, int bs);
+void transponer(double *b, double *bt, int n);
 double dwalltime();
 
 int main(int argc, char *argv[]) {
@@ -35,8 +36,8 @@ int main(int argc, char *argv[]) {
     // Quedaria como un arreglo de una dimension
     timetick = dwalltime();
     initvalmat(A, N, 1.0, 0);
-    initvalmat(B, N, 1.0, 0); 
-    initvalmat(BT, N, 1.0, 1); // B^T
+    initvalmat(B, N, 1.0, 1); 
+    transponer(B, BT, N);
     //Puedo usar un solo for por la forma en que guarde las matrices 
     // con N*N cubro todo el recorrido
     for (int i = 0; i < N * N; i++) {
@@ -80,7 +81,15 @@ int main(int argc, char *argv[]) {
     free(R);
     return 0;
 }
-
+void transponer(double *b, double *bt, int n) {
+    int aux,i, j;
+    for (i = 0; i < n; i++) {
+        aux=i*n;
+        for (j = 0; j < n; j++) {
+            bt[j * n + i] = b[aux + j];
+        }
+    }
+}
 void initvalmat(double *mat, int n, double val, int transpose) {
     int i, j,aux;
     if (transpose == 0) {
